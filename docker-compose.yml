@@ -1,0 +1,14 @@
+services:
+  packing:
+    build: . 
+    # command: tail -f test.json
+    # command: pip install --root-user-action=ignore -r requirements.txt && python api.py
+    command:  python api.py
+    restart: always
+    volumes:
+      - .:/scrapy
+    ports:
+      - 5050:5050
+
+
+

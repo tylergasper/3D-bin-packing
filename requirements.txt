@@ -1,5 +1,11 @@
-# python 3.6.5
-numpy == 1.19.5
-matplotlib == 3.3.4
-Flask==2.2.5
-Flask-Cors==3.0.10
+numpy 
+matplotlib 
+Flask
+Flask-Cors
+#plotly==5.6.0
+plotly
+# scipy>=1.10.0
+scipy
+#tabulate==0.8.9
+tabulate
+kaleido

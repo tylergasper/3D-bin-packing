@@ -47,12 +47,12 @@
 
 參數名|類型|說明|詳細
 :-----:  |:-----:|:-----: |:-----:                      
-**box** |**Object **  |**貨櫃信息** |**包含name,weight,openTop,coner** 
+**box** |**Object **  |**貨櫃信息** |**包含name,weight,openTop,corner** 
 <font color="red">name</font> | String  |貨櫃名稱 | 貨櫃顯示名稱(唯一值)  
 <font color="red">WHD</font> | Array(int)  |貨櫃長寬高 | 貨櫃長寬高  
 <font color="red">weight</font> |  Integer  |該貨櫃最大可承受重量 |單位為KG
 openTop | Array  |該貨櫃支持的開門型態 |1代表可一般側開，2代表可頂開 
-coner | int  |角件邊長大小 |0代表無角件，1開始有角件，單位為公分 
+corner | int  |角件邊長大小 |0代表無角件，1開始有角件，單位為公分 
 **item** | **Object**  |**物品信息** |**name,count,updown,type,level,loadbear,weight,color** 
 <font color="red">name</font> | String  |貨物名稱 | 貨物顯示名稱(唯一值)  
 count | Integer  |該貨物數量 |單位為個 
@@ -91,7 +91,7 @@ color | Integer  |物品顯示顏色 |1:紅2:黃3:藍4:綠5:紫6:棕7:橙
 			"WHD" : [1203,235,269],
             "weight": 26280,
             "openTop": [1,2],
-            "coner":15
+            "corner":15
         }
     ],
     "item": [
@@ -186,12 +186,12 @@ color | Integer  |物品顯示顏色 |1:紅2:黃3:藍4:綠5:紫6:棕7:橙
 
 參數名|類型|說明|詳細
 :-----:  |:-----:|:-----:|:-----:
-|**box** |**Object **  |**貨櫃信息** |**包含name,weight,openTop,coner** |
+|**box** |**Object **  |**貨櫃信息** |**包含name,weight,openTop,corner** |
 |name| String  |貨櫃名稱 | 貨櫃顯示名稱(唯一值)  |
 |WHD | Array(int)  |貨櫃長寬高 | 貨櫃長寬高  |
 |weight |  Integer  |該貨櫃最大可承受重量 |單位為KG|
 |openTop | Array  |該貨櫃支持的開門型態 |1代表一般側開，2代表頂開 |
-|coner | int  |角件邊長大小 |0代表無角件，1開始有角件，單位為公分 |
+|corner | int  |角件邊長大小 |0代表無角件，1開始有角件，單位為公分 |
 |**item** | **Object**  |**物品信息** |**name,count,updown,type,level,loadbear,weight,color** |
 |name | String  |貨物名稱 | 貨物顯示名稱(唯一值)  |
 |count | Integer  |該貨物數量 |單位為個 |

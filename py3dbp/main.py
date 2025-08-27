@@ -1,3 +1,28 @@
+# Copyright 2022 D-Wave
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING, List, Optional
+
+import numpy as np
+import plotly.colors as colors
+import plotly.graph_objects as go
+from tabulate import tabulate
+
+
+
 from .constants import RotationType, Axis
 from .auxiliary_methods import intersect, set2Decimal
 import numpy as np
@@ -7,15 +32,17 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.art3d as art3d
 from collections import Counter
 import copy
-DEFAULT_NUMBER_OF_DECIMALS = 0
+import random
+DEFAULT_NUMBER_OF_DECIMALS = 2
 START_POSITION = [0, 0, 0]
 
 
 
 class Item:
 
-    def __init__(self, partno,name,typeof, WHD, weight, level, loadbear, updown, color):
+    def __init__(self, partno,name,typeof, WHD, weight, level, loadbear, updown, color = None):
         ''' '''
+        WHD = sorted(WHD)
         self.partno = partno
         self.name = name
         self.typeof = typeof
@@ -30,10 +57,29 @@ class Item:
         # Upside down? True or False
         self.updown = updown if typeof == 'cube' else False
         # Draw item color
-        self.color = color
+        if color == None:
+            self.color = self.generate_random_hex_color()
+        else:
+            self.color = color
         self.rotation_type = 0
         self.position = START_POSITION
         self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
+
+
+
+
+    def generate_random_hex_color(self):
+        """Generates a random hexadecimal color code."""
+        # Generate random integers for Red, Green, and Blue channels (0-255)
+        r = random.randint(0, 255)
+        g = random.randint(0, 255)
+        b = random.randint(0, 255)
+
+        # Convert each integer to a two-digit hexadecimal string
+        # The ':02x' format specifier ensures two digits and zero-padding
+        hex_color = f"#{r:02x}{g:02x}{b:02x}"
+        return hex_color
+
 
 
     def formatNumbers(self, number_of_decimals):
@@ -84,12 +130,12 @@ class Item:
 
         return dimension
 
-
-
 class Bin:
 
     def __init__(self, partno, WHD, max_weight,corner=0,put_type=1):
         ''' '''
+
+        WHD = sorted(WHD)
         self.partno = partno
         self.width = WHD[0]
         self.height = WHD[1]
@@ -218,7 +264,9 @@ class Bin:
                                 return fit
                         
                     self.fit_items = np.append(self.fit_items,np.array([[x,x+float(w),y,y+float(h),z,z+float(d)]]),axis=0)
-                    item.position = [set2Decimal(x),set2Decimal(y),set2Decimal(z)]
+                    item.position = [set2Decimal(x, self.number_of_decimals),
+                                    set2Decimal(y, self.number_of_decimals),
+                                    set2Decimal(z, self.number_of_decimals)]
 
                 if fit :
                     self.items.append(copy.deepcopy(item))
@@ -304,7 +352,7 @@ class Bin:
     def addCorner(self):
         '''add container coner '''
         if self.corner != 0 :
-            corner = set2Decimal(self.corner)
+            corner = set2Decimal(self.corner, self.number_of_decimals)
             corner_list = []
             for i in range(8):
                 a = Item(
@@ -325,9 +373,9 @@ class Bin:
     def putCorner(self,info,item):
         '''put coner in bin '''
         fit = False
-        x = set2Decimal(self.width - self.corner)
-        y = set2Decimal(self.height - self.corner)
-        z = set2Decimal(self.depth - self.corner)
+        x = set2Decimal(self.width - self.corner, self.number_of_decimals)
+        y = set2Decimal(self.height - self.corner, self.number_of_decimals)
+        z = set2Decimal(self.depth - self.corner, self.number_of_decimals)
         pos = [[0,0,0],[0,0,z],[0,y,z],[0,y,0],[x,y,0],[x,0,0],[x,0,z],[x,y,z]]
         item.position = pos[info]
         self.items.append(item)
@@ -344,7 +392,6 @@ class Bin:
         self.fit_items = np.array([[0,self.width,0,self.height,0,0]])
         return
 
-
 class Packer:
 
     def __init__(self):
@@ -354,6 +401,7 @@ class Packer:
         self.unfit_items = []
         self.total_items = 0
         self.binding = []
+        self.total_item_volume = 0
         # self.apex = []
 
 
@@ -365,6 +413,7 @@ class Packer:
     def addItem(self, item):
         ''' '''
         self.total_items = len(self.items) + 1
+        self.total_item_volume = self.total_item_volume + item.getVolume()
 
         return self.items.append(item)
 
@@ -538,11 +587,16 @@ class Packer:
         r = [area[0][2],area[1][2],area[2][2],area[3][2]]
         result = []
         for i in r :
-            result.append(round(i / sum(r) * 100,2))
+            result.append(round(i / sum(r) * 105,2))
         return result
 
 
-    def pack(self, bigger_first=False,distribute_items=True,fix_point=True,check_stable=True,support_surface_ratio=0.75,binding=[],number_of_decimals=DEFAULT_NUMBER_OF_DECIMALS):
+    def pack(self, 
+            bigger_first=False,
+            distribute_items=True,
+            fix_point=True,
+            check_stable=True,
+            support_surface_ratio=0.75,binding=[],number_of_decimals=DEFAULT_NUMBER_OF_DECIMALS):
         '''pack master func '''
         # set decimals
         for bin in self.bins:
@@ -552,9 +606,9 @@ class Packer:
             item.formatNumbers(number_of_decimals)
         # add binding attribute
         self.binding = binding
-        # Bin : sorted by volumn
+        # Bin : sorted by volume
         self.bins.sort(key=lambda bin: bin.getVolume(), reverse=bigger_first)
-        # Item : sorted by volumn -> sorted by loadbear -> sorted by level -> binding
+        # Item : sorted by volume -> sorted by loadbear -> sorted by level -> binding
         self.items.sort(key=lambda item: item.getVolume(), reverse=bigger_first)
         # self.items.sort(key=lambda item: item.getMaxArea(), reverse=bigger_first)
         self.items.sort(key=lambda item: item.loadbear, reverse=True)
@@ -564,6 +618,14 @@ class Packer:
             self.sortBinding(bin)
 
         for idx,bin in enumerate(self.bins):
+            # if the distribute_items == false skip the bin if the items have a volume greater than the bin 
+            if bin.getVolume() < self.total_item_volume:
+                print(bin.partno)
+                print(bin.getVolume())
+                print(self.total_item_volume)
+                continue
+
+
             # pack item to bin
             for item in self.items:
                 self.pack2Bin(bin, item, fix_point, check_stable, support_surface_ratio)
@@ -582,7 +644,7 @@ class Packer:
                     self.pack2Bin(bin, item,fix_point,check_stable,support_surface_ratio)
             
             # Deviation Of Cargo Gravity Center 
-            self.bins[idx].gravity = self.gravityCenter(bin)
+            # self.bins[idx].gravity = self.gravityCenter(bin)
 
             if distribute_items :
                 for bitem in bin.items:
@@ -591,6 +653,14 @@ class Packer:
                         if item.partno == no :
                             self.items.remove(item)
                             break
+
+
+            # after finding the first carton that fits the items break out of the loop
+            if bin.unfitted_items == []:
+                break
+
+
+
 
         # put order of items
         self.putOrder()
@@ -601,8 +671,6 @@ class Packer:
         # for item in self.items.copy():
         #     if item in bin.unfitted_items:
         #         self.items.remove(item)
-
-
 
 class Painter:
 
@@ -730,3 +798,314 @@ class Painter:
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
+class PlotlyPainter: 
+    def __init__(self,bins):
+        ''' '''
+        self.items = bins.items
+        self.width = bins.width # x
+        self.height = bins.height # y
+        self.depth = bins.depth # z 
+
+    def plot_cuboids(self):
+        fig = self._plot_cuboids()
+        i = 0
+     
+
+
+        # start uprights
+        fig.add_trace(
+            go.Scatter3d(
+                x=[0, 0],
+                y=[0, 0],
+                z=[0, self.depth],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * (i + 1)] * 2,
+                y=[0, 0],
+                z=[0, self.depth],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[0, 0],
+                y=[self.height * (i + 1)] * 2,
+                z=[0, self.depth],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * (i + 1)] * 2,
+                y=[self.height * (i + 1)] * 2,
+                z=[0, self.depth],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+
+
+        # end uprights
+
+
+        # start width wise
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * i, self.width * (i + 1)],
+                y=[0, 0],
+                z=[0, 0],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * i, self.width * (i + 1)],
+                y=[self.height * (i + 1)] * 2,
+                z=[0, 0],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * i, self.width * (i + 1)],
+                y=[self.height * (i + 1)] * 2,
+                z=[self.depth] * 2,
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * i, self.width * (i + 1)],
+                y=[0] * 2,
+                z=[self.depth] * 2,
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+
+        # end widthwise
+
+
+        # start narrow side
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * (i + 1)] * 2,
+                y=[0, self.height],
+                z=[0, 0],
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+   
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[self.width * (i + 1)] * 2,
+                y=[0, self.height],
+                z=[self.depth] * 2,
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[0] * 2,
+                y=[0, self.height],
+                z=[self.depth] * 2,
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+   
+
+
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[0] * 2,
+                y=[0, self.height],
+                z=[0] * 2,
+                mode="lines",
+                name=f"Bin Boundary",
+                legendgroup=f"Bin Boundary",
+                line_color="red",
+                line_width=5,
+            )
+        )
+   
+
+        # end narrow side
+
+        fig.update_layout(scene=dict(aspectmode="data"))
+
+        return fig
+
+
+
+
+    def _plot_cuboids(self): 
+        case_data = self._get_all_cuboids()
+        fig = go.Figure(data=case_data)
+        # fig.update_layout(
+        #     scene=dict(
+        #         xaxis=dict(range=[0, float(self.width) * 1.5]),
+        #         yaxis=dict(range=[0, float(self.height) * 1.5]),
+        #         zaxis=dict(range=[0, float(self.depth) * 1.5]),
+        #     )
+        # )
+
+        # fig.update_layout(
+        #     autosize=False,
+        #     width=50,
+        #     height=50,
+        # )
+
+        return fig
+
+
+
+
+    def _get_all_cuboids(self):
+        case_data = []
+        mesh_kwargs = dict(alphahull=0, flatshading=True, showlegend=True)
+        for item in self.items:
+
+            # get the dimensions of the item after rotation
+            [w,h,d] = item.getDimension()
+            case_points = self._cuboid_data(origin = tuple([float(item.position[0]), float(item.position[1]), float(item.position[2])]), 
+                                            size = tuple([float(w), float(h), float(d)]))
+            # Get all unique vertices for 3d Mesh
+            x, y, z = np.unique(np.vstack(case_points), axis=0).T
+            mesh_kwargs["color"] = item.color
+
+    
+            # print(case_points)
+            # for case_point in case_points:
+
+            #     case_data.append(go.Scatter3d(
+            #            x=[case_point[0][0],case_point[1][0]],
+            #            y=[case_point[0][1],case_point[1][1]],
+            #            z=[case_point[0][2],case_point[1][2]],
+            #            mode='lines',
+            #            showlegend=False,
+            #            legendgroup=f"{item.name}",
+            #            line=dict(color='black', width=2)))
+
+
+            #     case_data.append(go.Scatter3d(  
+            #            x=[case_point[1][0],case_point[2][0]],
+            #            y=[case_point[1][1],case_point[2][1]],
+            #            z=[case_point[1][2],case_point[2][2]],
+            #            mode='lines',
+            #            showlegend=False,
+            #            legendgroup=f"{item.name}",
+            #            line=dict(color='black', width=2)))
+
+
+            #     case_data.append(go.Scatter3d(
+            #            x=[case_point[2][0],case_point[3][0]],
+            #            y=[case_point[2][1],case_point[3][1]],
+            #            z=[case_point[2][2],case_point[3][2]],
+            #            mode='lines',
+            #            showlegend=False,
+            #            legendgroup=f"{item.name}",
+            #            line=dict(color='black', width=2)))
+
+            #     case_data.append(go.Scatter3d(
+            #            x=[case_point[3][0],case_point[0][0]],
+            #            y=[case_point[3][1],case_point[0][1]],
+            #            z=[case_point[3][2],case_point[0][2]],
+            #            mode='lines',
+            #            showlegend=False,
+            #            legendgroup=f"{item.name}",
+            #            line=dict(color='black', width=2)))
+
+
+
+            case_data.append(go.Mesh3d(x=x, y=y, z=z, name=f"{item.partno}", legendgroup=f"{item.name}", **mesh_kwargs))
+
+
+        return case_data
+
+
+
+    def _cuboid_data(self, origin: tuple, size: tuple = (1, 1, 1)):
+        X = [
+            [[0, 1, 0], [0, 0, 0], [1, 0, 0], [1, 1, 0]],
+            [[0, 0, 0], [0, 0, 1], [1, 0, 1], [1, 0, 0]],
+            [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]],
+            [[0, 0, 1], [0, 0, 0], [0, 1, 0], [0, 1, 1]],
+            [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]],
+            [[0, 1, 1], [0, 0, 1], [1, 0, 1], [1, 1, 1]],
+        ]
+        X = np.array(X).astype(float)
+        for i in range(3):
+            X[:, :, i] *= size[i]
+        X += np.array(origin)
+
+        return X
